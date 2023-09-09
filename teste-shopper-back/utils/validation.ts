@@ -5,17 +5,12 @@ import * as dbProductPacks from '../db/ProductPacks';
 import { Product } from "../types/product";
 import { Pack } from "../types/pack";
 import { PackCollection } from "../types/packCollection";
-import one_pack_with_6_units from "../tests/one_pack_with_6_units";
 import { ValidationError } from "../exceptions/validationError";
 
 const snakeCaseNotNumbersNotUppercase = /^[a-z]+(?:_[a-z]+)*$/;
 
 const validateSnakeCase = (field: string) => {
     return snakeCaseNotNumbersNotUppercase.test(field);
-}
-
-const validateHeaders = (headers: string[]) => {
-    return headers.reduce((prev, curr) => validateSnakeCase(curr) && prev, true);
 }
 
 const isArray = (arr: any[]) => {
@@ -25,25 +20,6 @@ const isArray = (arr: any[]) => {
 const isNumber = (numberString: string) => {
     return !!Number(numberString);
 }
-/* 
-const getValues = (arr: string[][]) => {
-    return arr.slice(1);
-}
- */
-const isArrayOfNumbers = (arr: string[]) => {
-    return arr.reduce((prev, curr) => isNumber(curr) && prev, true);
-}
-
-const validateFields = (splitCsv: string[][]) => {
-    const fieldsCount = 2;
-    const isAnArray = isArray(splitCsv);
-    const containsAtLeastOneArray = isArray(splitCsv[0]);
-    const headersAreValid = validateHeaders(splitCsv[0]);
-    const containsNHeaders = splitCsv[0].length === fieldsCount;
-    //const valuesAreNumbers = getValues(splitCsv);
-    /* const isAllString = splitCsv.reduce((prev, curr) => typeof curr === 'string' && prev, true);
-    const haveAtLeastNFields = splitCsv.reduce((prev, curr, index) => index < fieldsCount ? typeof curr === 'string' && prev :, true); */
-};
 
 const validators = {
     number: isNumber,
@@ -59,19 +35,7 @@ const validatePercentageIncrease = (productUpdate: ProductUpdate, product: Produ
     return true;
 
 }
-/* 
-const validatePackageSalesPriceIsSumOfItsComponents = (packs: Pack[]) => {
 
-    //const packs: Pack[] = await dbProductPacks.findPacksByPackCode(packProductCode);
-    if (!packs || !packs.length) {
-        throw new Error('Product is not a Package or the Product Is Inexistent');
-    }
-    const sum = packs.reduce((prev, curr) => Number(curr.component_product.salesPrice) * Number(curr.qty) + prev, 0.0);
-    if (Number(packs[0].pack_product.salesPrice) === Number(sum.toFixed(2))) return true;
-    return false;
-
-}
- */
 const isPack = async (code: number) => {
     const packs = await dbProductPacks.findPacksByPackCode(code);
     if (!packs || !packs.length) {
@@ -113,47 +77,46 @@ const sumComponents = async (code: number, productsUpdate: ProductUpdate[]) => {
 const validatePackageSalesPriceIsSumOfItsComponentsProductUpdate = async (productsUpdate: ProductUpdate[]) => {
 
     let packs = [];
-    for (const productUpdate of productsUpdate) {
+    //for (const productUpdate of productsUpdate) {
+    for (let i = 0; i < productsUpdate.length; i++) {
+        const productUpdate = productsUpdate[i];
         
         const productIsPack = await isPack(productUpdate.product_code);
         console.log({productIsPack});
         if(productIsPack) {
             let sumOfItsComponents = 0;
-            /*const components = await dbProductPacks.findComponentsOfPack(productUpdate.product_code);
-
-            for (const comp of components) {
-                const compListIndex = productsUpdate.findIndex((element) => element.product_code === Number(comp.code));
-                const compIsInList = compListIndex !== -1;
-                if (!compIsInList) throw new Error('The CSV File Must Contain all Components of Package P if an Update for Package P is Provided');
-                sumOfItsComponents += Number(components[compListIndex].salesPrice);
-            } */
+            
             try {
                 sumOfItsComponents = await sumComponents(productUpdate.product_code, productsUpdate);
             } catch (err: any) {
                 if (err.message === 'Component Not Found In The List')
-                    throw new Error('The CSV File Must Contain all Components of Package P if an Update for Package P is Provided');
+                    //throw new Error('The CSV File Must Contain all Components of Package P if an Update for Package P is Provided');
+                    throw new ValidationError('The CSV File Must Contain all Components of Package P if an Update for Package P is Provided', i + 1, -1);
                 else throw new Error(err.message);
             }
 
             console.log('chegou no pack')
             if (productUpdate.new_price !== sumOfItsComponents)
-                throw new Error('The new_price of the Package Must be Equal to the Sum of the new_price of its Components');
+                throw new ValidationError('The new_price of the Package Must be Equal to the Sum of the new_price of its Components', i + 1, -1);
 
         } else {
             
             const containingPacks = await dbProductPacks.findPacksByComponentCode(productUpdate.product_code);
             console.log({containingPacks});
-            for (const containingPack of containingPacks) {
+            //for (const containingPack of containingPacks) {
+            for (let j = 0; j < containingPacks.length; j++) {
+                const containingPack = containingPacks[j];
                 const containerListIndex = productsUpdate.findIndex((element) => element.product_code === Number(containingPack.packId));
                 const isInList = containerListIndex !== -1;
-                if (!isInList) throw new Error('The CSV File Must Contain all Containers of Component K if an Update for Component K is Provided');
+                if (!isInList) throw new ValidationError('The CSV File Must Contain all Containers of Component K if an Update for Component K is Provided', i + 1, -1);
                     
                 let sumOfItsComponents = 0;
                 
                 try {
                     sumOfItsComponents = await sumComponents(Number(containingPack.packId), productsUpdate);
                 } catch (err) {
-                    throw new Error('The CSV File Must Contain all Components of Package P if an Update for Package P is Provided');
+                    //throw new Error('The CSV File Must Contain all Components of Package P if an Update for Package P is Provided');
+                    throw new ValidationError('The CSV File Must Contain all Components of Package P if an Update for Package P is Provided', containerListIndex + 1, -1);
                 }
 
                 const container = productsUpdate[containerListIndex];
@@ -161,7 +124,7 @@ const validatePackageSalesPriceIsSumOfItsComponentsProductUpdate = async (produc
                 console.log({sumOfItsComponents: container.new_price});
                 console.log('chegou no comp')
                 if (container.new_price !== sumOfItsComponents)
-                    throw new Error('The new_price of the Package Must be Equal to the Sum of the new_price of its Components');
+                    throw new ValidationError('The new_price of the Package Must be Equal to the Sum of the new_price of its Components', i, -1);
 
             }
 
@@ -191,7 +154,6 @@ const isValidArray = (productsUpdate: ProductUpdate[]) => {
 }
 
 export {
-    validateFields,
     validateSnakeCase,
     isNumber,
     getValidator,
