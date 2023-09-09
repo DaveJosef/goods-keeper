@@ -1,0 +1,3 @@
+[submodule "testeShopperFront"]
+	path = teste-shopper-front
+	url = https://github.com/DaveJosef/teste-shopper-front
