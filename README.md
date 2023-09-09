@@ -2,6 +2,9 @@
 Aplicação que carrega produtos através de CSV.
 O projeto foi feito com React e Express no Backend.
 
+## Atenção
+Para clonar esse repositório corretamente, é necessário utilizar o comando ```git clone --recurse-submodules https://github.com/DaveJosef/goods-keeper```, por conta do recurso de submódulos que foi utilizado.
+
 ## Testes
 Você pode testar a aplicação pelo Insomnia com o pacote de requisições que disponibilizei na pasta do Backend.
 
